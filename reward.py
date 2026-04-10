@@ -1,0 +1,65 @@
+from __future__ import annotations
+import numpy as np
+from config import RewardConfig
+from tqdm import tqdm
+
+
+class PaperReward:
+    """
+    r(x,u) = -wu ||u||^2 - wv (vx - vx*)^2 - wh (z - z*)^2
+    """
+
+    def __init__(self, cfg: RewardConfig):
+        self.cfg = cfg
+
+    def value(self, vx: float, z: float, u: np.ndarray) -> float:
+        c = self.cfg
+        return (
+            -c.wu * float(np.dot(u, u))
+            -c.wv * float((vx - c.target_vx) ** 2)
+            -c.wh * float((z - c.target_z) ** 2)
+        )
+
+    def derivatives_wrt_state_action(
+        self,
+        sim_state: np.ndarray,
+        action: np.ndarray,
+        nq: int,
+        nv: int,
+    ):
+        """
+        Analytic derivatives wrt full sim state s = [qpos, qvel] and action u.
+
+        Assumptions:
+        - z = qpos[2]
+        - vx = qvel[0]
+        """
+        state_dim = nq + nv
+        act_dim = action.shape[0]
+        c = self.cfg
+
+        qpos = sim_state[:nq]
+        qvel = sim_state[nq:]
+
+        z = qpos[2]
+        vx = qvel[0]
+
+        rx = np.zeros(state_dim, dtype=np.float64)
+        ru = np.zeros(act_dim, dtype=np.float64)
+        rxx = np.zeros((state_dim, state_dim), dtype=np.float64)
+        ruu = np.zeros((act_dim, act_dim), dtype=np.float64)
+        rux = np.zeros((act_dim, state_dim), dtype=np.float64)
+
+        # d/dz
+        rx[2] = -2.0 * c.wh * (z - c.target_z)
+        rxx[2, 2] = -2.0 * c.wh
+
+        # d/dvx, vx is qvel[0] -> overall state index nq + 0
+        rx[nq + 0] = -2.0 * c.wv * (vx - c.target_vx)
+        rxx[nq + 0, nq + 0] = -2.0 * c.wv
+
+        # d/du
+        ru[:] = -2.0 * c.wu * action
+        ruu[:] = -2.0 * c.wu * np.eye(act_dim)
+
+        return rx, ru, rxx, ruu, rux
