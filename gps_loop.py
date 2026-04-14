@@ -47,7 +47,7 @@ class GuidedPolicySearchTrainer:
         self.sample_set = []
 
     def make_initial_action_guess(self, horizon: int) -> np.ndarray:
-        return 0.05 * np.random.randn(horizon, self.env.act_dim).astype(np.float64)
+        return 0.01 * np.random.randn(horizon, self.env.act_dim).astype(np.float64)
 
     def build_initial_guides(self, init_state: np.ndarray):
         iterator = range(self.cfg.initial_num_guides)
