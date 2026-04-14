@@ -47,7 +47,7 @@ class GuidedPolicySearchTrainer:
         self.sample_set = []
 
     def make_initial_action_guess(self, horizon: int) -> np.ndarray:
-        return np.zeros((horizon, self.env.act_dim), dtype=np.float64)
+        return 0.05 * np.random.randn(horizon, self.env.act_dim).astype(np.float64)
 
     def build_initial_guides(self, init_state: np.ndarray):
         iterator = range(self.cfg.initial_num_guides)
@@ -154,7 +154,7 @@ class GuidedPolicySearchTrainer:
             fd_eps=self.cfg.ilqr.fd_eps,
         )
 
-        u_seed = np.zeros((self.cfg.ilqr.horizon, self.env.act_dim), dtype=np.float64)
+        u_seed = self.make_initial_action_guess(self.cfg.ilqr.horizon)
         tqdm.write(f"[Adaptive Guide | GPS {iteration}] optimizing adaptive guide")
         ctrl, _, _ = self.ilqr.optimize(
             x0=init_state,
