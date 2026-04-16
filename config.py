@@ -15,7 +15,7 @@ class RewardConfig:
 
 @dataclass
 class ILQRConfig:
-    horizon: int = 50
+    horizon: int = 200
     max_iter: int = 15
     fd_eps: float = 1e-3
     reg_min: float = 1e-6
@@ -41,7 +41,7 @@ class GPSConfig:
 
     # Paper-like training structure
     gps_iterations: int = 60
-    initial_num_guides: int = 1
+    initial_num_guides: int = 1     ########## Might have to change 4-8
     initial_guiding_samples: int = 40
     onpolicy_samples_per_iter: int = 10
     adaptive_guiding_samples_per_iter: int = 10
