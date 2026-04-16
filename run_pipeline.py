@@ -4,7 +4,6 @@ import torch
 from config import GPSConfig
 from gps_loop import GuidedPolicySearchTrainer
 from evaluate import evaluate_policy
-from tqdm import tqdm
 
 
 def main():
