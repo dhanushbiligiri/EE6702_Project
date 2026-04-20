@@ -2,7 +2,7 @@
 
 This repository contains a Python implementation of Guided Policy Search (GPS) with iLQR-based guide generation for the Gymnasium MuJoCo `Humanoid-v4` environment.
 
-# Guided Policy Search for MuJoCo Humanoid
+## Guided Policy Search for MuJoCo Humanoid
 
 This repository contains a Python implementation of Guided Policy Search (GPS) with iLQR-based guide generation for the Gymnasium MuJoCo `Humanoid-v4` environment.
 
@@ -16,7 +16,7 @@ The project includes:
 
 ---
 
-## Repository Structure
+### Repository Structure
 
 Typical files in this project:
 
@@ -50,7 +50,7 @@ Typical files in this project:
 - `config.py`  
   Central place for reward weights, iLQR settings, GPS settings, and policy settings.
 
-## Steps to implememnt
+### Steps to implememnt
 
 1. Git clone the repo
 2. Install the conda environemnt using -
