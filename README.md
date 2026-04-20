@@ -68,3 +68,11 @@ By default, the policy checkpoint is saved as:
 4. After training, render the saved policy with:
 
 ``python test_policy.py``
+
+
+
+## References
+
+1. Levine, S., & Koltun, V. (2013, May). Guided policy search. In International conference on machine learning (pp. 1-9). PMLR.
+
+2. OpenAI. (2025). ChatGPT (GPT-5.3). https://chat.openai.com/ - Used for assistance in code development and debugging.
