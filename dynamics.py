@@ -5,14 +5,6 @@ from tqdm import tqdm
 
 
 class FiniteDifferenceDynamics:
-    """
-    Local linearization of simulator dynamics around a nominal trajectory:
-        s_{t+1} ≈ f_x s_t + f_u u_t + c_t
-    We return Jacobians of next-state wrt current state and action.
-
-    This follows the paper's implementation style: finite differences for dynamics.
-    """
-
     def __init__(self, env: HumanoidPaperEnv, fd_eps: float = 1e-4):
         self.env = env
         self.fd_eps = fd_eps

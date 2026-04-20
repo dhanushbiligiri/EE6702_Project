@@ -9,21 +9,6 @@ from tqdm import tqdm
 
 
 class AdaptiveReward:
-    """
-    Implements the paper's adaptive guide idea:
-        r_bar(x,u) = r(x,u) + log pi_theta(u|x)
-
-    For iLQR/DDP, the exact second-order derivatives of log pi wrt state/action
-    are cumbersome through the neural network. The closest practical faithful choice
-    is:
-    - keep analytic paper reward derivatives
-    - add first-order finite-difference derivatives of log pi wrt state and action
-    - ignore second derivatives of the policy term
-
-    This keeps the adaptive guide concept faithful while making the implementation
-    tractable.
-    """
-
     def __init__(
         self,
         env: HumanoidPaperEnv,
@@ -55,7 +40,6 @@ class AdaptiveReward:
         act_dim = action.shape[0]
         eps = self.fd_eps
 
-        # first-order finite differences for log pi
         rx_pi = np.zeros(state_dim, dtype=np.float64)
         ru_pi = np.zeros(act_dim, dtype=np.float64)
 

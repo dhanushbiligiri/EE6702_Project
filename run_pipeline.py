@@ -4,6 +4,7 @@ import torch
 from config import GPSConfig
 from gps_loop import GuidedPolicySearchTrainer
 from evaluate import evaluate_policy
+from env import HumanoidPaperEnv
 
 
 def main():
@@ -18,11 +19,11 @@ def main():
     torch.save(policy.state_dict(), "best_policy.pt")
     print("Saved best policy to best_policy.pt")
 
-    env = trainer.env
-    init_state = env.reset(seed=cfg.seed)
+    eval_env = HumanoidPaperEnv(cfg)
+    init_state = eval_env.reset(seed=cfg.seed)
 
     eval_out = evaluate_policy(
-        env=env,
+        env=eval_env,
         policy=policy,
         init_state=init_state,
         horizon=cfg.ilqr.horizon,

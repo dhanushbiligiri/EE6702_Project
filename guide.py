@@ -48,6 +48,15 @@ def sample_guide_trajectory(
         rewards[t] = reward
         dones[t] = done
 
+        if done:
+            for tt in range(t + 1, T):
+                sim_states[tt + 1] = next_state
+                obs[tt] = env.policy_obs_from_sim_state(next_state)
+                actions[tt] = 0.0
+                rewards[tt] = 0.0
+                dones[tt] = True
+            break
+
     return Trajectory(
         sim_states=sim_states,
         obs=obs,
@@ -55,6 +64,8 @@ def sample_guide_trajectory(
         rewards=rewards,
         dones=dones,
         source_name=controller.source_name,
+        source_type="guide",
+        source_id=controller.source_name,
     )
 
 

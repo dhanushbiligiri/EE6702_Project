@@ -16,17 +16,19 @@ class TimeStepData:
 
 @dataclass
 class Trajectory:
-    sim_states: np.ndarray     # [T+1, state_dim]
-    obs: np.ndarray            # [T, obs_dim]
-    actions: np.ndarray        # [T, act_dim]
-    rewards: np.ndarray        # [T]
-    dones: np.ndarray          # [T]
-    source_name: str           # "guide_0", "policy_k", etc.
+    sim_states: np.ndarray
+    obs: np.ndarray
+    actions: np.ndarray
+    rewards: np.ndarray
+    dones: np.ndarray
+
+    source_name: str
+    source_type: str            # policy
+    source_id: str
 
 
 @dataclass
 class LinearGaussianController:
-    # u_t ~ N( u_bar_t + k_t + K_t (x - x_bar_t), Sigma_t )
     x_nom: np.ndarray          # [T+1, state_dim]
     u_nom: np.ndarray          # [T, act_dim]
     k: np.ndarray              # [T, act_dim]

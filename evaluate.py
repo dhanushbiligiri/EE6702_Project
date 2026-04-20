@@ -16,6 +16,7 @@ def rollout_policy(
     device: torch.device,
     deterministic: bool = False,
     source_name: str = "policy",
+    source_id: str = "policy",
 ) -> Trajectory:
     state_dim = init_state.shape[0]
     act_dim = env.act_dim
@@ -45,14 +46,25 @@ def rollout_policy(
         rewards[t] = r
         dones[t] = d
 
+        if d:
+            for tt in range(t + 1, horizon):
+                sim_states[tt + 1] = next_state
+                obs[tt] = env.policy_obs_from_sim_state(next_state)
+                actions[tt] = 0.0
+                rewards[tt] = 0.0
+                dones[tt] = True
+            break
+
     return Trajectory(
-        sim_states=sim_states,
-        obs=obs,
-        actions=actions,
-        rewards=rewards,
-        dones=dones,
-        source_name=source_name,
-    )
+    sim_states=sim_states,
+    obs=obs,
+    actions=actions,
+    rewards=rewards,
+    dones=dones,
+    source_name=source_name,
+    source_type="policy",
+    source_id=source_id,
+)
 
 
 def evaluate_policy(
@@ -68,14 +80,15 @@ def evaluate_policy(
     trajs = []
     for i in range(n_rollouts):
         traj = rollout_policy(
-            env=env,
-            policy=policy,
-            init_state=init_state,
-            horizon=horizon,
-            device=device,
-            deterministic=deterministic,
-            source_name=f"eval_{i}",
-        )
+        env=env,
+        policy=policy,
+        init_state=init_state,
+        horizon=horizon,
+        device=device,
+        deterministic=deterministic,
+        source_name=f"eval_{i}",
+        source_id=f"eval_{i}",
+    )
         trajs.append(traj)
         returns.append(float(np.sum(traj.rewards)))
     return {

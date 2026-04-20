@@ -8,7 +8,7 @@ from utils import ensure_psd, stable_inv_and_logdet
 
 class ILQR:
     """
-    iLQR / DDP-style local optimizer for deterministic simulator rollouts.
+    DDP-style local optimizer for deterministic simulator rollouts.
 
     Notes:
     - uses finite-difference dynamics Jacobians
@@ -58,6 +58,15 @@ class ILQR:
             ds[t] = d
             obs[t] = o
 
+            if d:
+                for tt in range(t + 1, T):
+                    xs[tt + 1] = x_next
+                    obs[tt] = self.env.policy_obs_from_sim_state(x_next)
+                    us[tt] = 0.0
+                    rs[tt] = 0.0
+                    ds[tt] = True
+                break
+
         return xs, obs, us, rs, ds
 
     def total_return(self, rewards: np.ndarray) -> float:
@@ -99,8 +108,6 @@ class ILQR:
         T = u_nom.shape[0]
         state_dim = x_nom.shape[1]
         act_dim = u_nom.shape[1]
-
-        # terminal value approximation
         Vx = np.zeros(state_dim, dtype=np.float64)
         Vxx = np.zeros((state_dim, state_dim), dtype=np.float64)
 
@@ -110,7 +117,6 @@ class ILQR:
         cov_inv = np.zeros((T, act_dim, act_dim), dtype=np.float64)
         cov_logdet = np.zeros(T, dtype=np.float64)
 
-        # configurable clip from cfg if present, else fallback
         matrix_clip = getattr(self.cfg, "matrix_clip", 1e6)
 
         for t in reversed(range(T)):
@@ -123,44 +129,52 @@ class ILQR:
                 )
             else:
                 rx, ru, rxx, ruu, rux = reward_override_fn(s, u)
+            lambda_smooth = 0.05
+
+            if t > 0:
+                u_prev = u_nom[t - 1]
+            else:
+                u_prev = np.zeros_like(u)
+
+
 
             fx_t = fx[t]
             fu_t = fu[t]
+            Vxx_reg = Vxx + reg * np.eye(state_dim)
+            Quu = ruu + fu_t.T @ Vxx_reg @ fu_t 
 
-            # local quadratic expansion terms
             Qx = rx + fx_t.T @ Vx
             Qu = ru + fu_t.T @ Vx
             Qxx = rxx + fx_t.T @ Vxx @ fx_t
             Quu = ruu + fu_t.T @ Vxx @ fu_t
             Qux = rux + fu_t.T @ Vxx @ fx_t
 
-            # preserve symmetry
             Qxx = self._symmetrize(Qxx)
             Quu = self._symmetrize(Quu)
 
-            # hard guards before things become nonsense
             self._check_explosion("Qxx", Qxx, t)
             self._check_explosion("Quu", Quu, t)
             self._check_explosion("Qux", Qux, t)
 
-            # spectral clipping, safer than elementwise clipping
             Qxx = self._spectral_clip_symmetric(Qxx, matrix_clip)
             Quu = self._spectral_clip_symmetric(Quu, matrix_clip)
             Qux = np.clip(Qux, -matrix_clip, matrix_clip)
 
-            # optional sparse debug printing only at a few timesteps
             if debug and t in {T - 1, T // 2, 0}:
                 eigvals = np.linalg.eigvalsh(Quu)
                 print(
                     f"[backward t={t}] min_eig(Quu)={eigvals.min():.6e}, "
                     f"max_eig(Quu)={eigvals.max():.6e}, reg={reg:.2e}"
                 )
-
-            # reward maximization form: push Quu more negative
-            Quu_reg = Quu - reg * np.eye(act_dim, dtype=np.float64)
+            Quu_reg = Quu + reg * np.eye(act_dim, dtype=np.float64)
             Quu_reg = self._symmetrize(Quu_reg)
 
             minus_Quu = -Quu_reg
+            minus_Quu = self._symmetrize(minus_Quu)
+            eigvals, eigvecs = np.linalg.eigh(minus_Quu)
+            eigvals = np.clip(eigvals, 1e-6, None)
+            minus_Quu = eigvecs @ np.diag(eigvals) @ eigvecs.T
+            minus_Quu = self._symmetrize(minus_Quu)
 
             if debug and t in {T - 1, T // 2, 0}:
                 eigvals_m = np.linalg.eigvalsh(self._symmetrize(minus_Quu))
@@ -168,22 +182,26 @@ class ILQR:
                     f"[backward t={t}] min_eig(-Quu_reg)={eigvals_m.min():.6e}, "
                     f"max_eig(-Quu_reg)={eigvals_m.max():.6e}"
                 )
-
-            # ensure PSD for covariance / solve
             try:
                 minus_Quu = ensure_psd(minus_Quu, jitter=self.cfg.q_uu_jitter)
                 minus_Quu_inv, minus_Quu_logdet = stable_inv_and_logdet(
                     minus_Quu, jitter=self.cfg.q_uu_jitter
                 )
-
-                # Since k = -Quu^{-1} Qu and Quu^{-1} = -( -Quu )^{-1}
                 k_t = minus_Quu_inv @ Qu
                 K_t = minus_Quu_inv @ Qux
+                Sigma_t = self._symmetrize(minus_Quu_inv)
+                eigvals, eigvecs = np.linalg.eigh(Sigma_t)
+                eigvals = np.clip(
+                    eigvals,
+                    self.cfg.guide_cov_min_eig,
+                    self.cfg.guide_cov_max_eig,
+                )
+                Sigma_t = eigvecs @ np.diag(eigvals) @ eigvecs.T
+                Sigma_t = self._symmetrize(Sigma_t)
 
-                # Gaussian covariance Sigma = -Quu^{-1} = ( -Quu )^{-1}
-                Sigma_t = minus_Quu_inv
-                Sigma_inv_t = minus_Quu
-                Sigma_logdet_t = minus_Quu_logdet
+                Sigma_inv_t, Sigma_logdet_t = stable_inv_and_logdet(
+                    Sigma_t, jitter=self.cfg.q_uu_jitter
+                )
 
             except np.linalg.LinAlgError as exc:
                 raise np.linalg.LinAlgError(
@@ -195,10 +213,8 @@ class ILQR:
             cov[t] = Sigma_t
             cov_inv[t] = Sigma_inv_t
             cov_logdet[t] = Sigma_logdet_t
-
-            # IMPORTANT: use Quu_reg consistently in value recursion
-            Vx = Qx + K_t.T @ Quu_reg @ k_t - K_t.T @ Qu - Qux.T @ k_t
-            Vxx = Qxx + K_t.T @ Quu_reg @ K_t - K_t.T @ Qux - Qux.T @ K_t
+            Vx = Qx - K_t.T @ Quu_reg @ k_t #- K_t.T @ Qu - Qux.T @ k_t
+            Vxx = Qxx - K_t.T @ Quu_reg @ K_t #- K_t.T @ Qux - Qux.T @ K_t
             Vxx = self._symmetrize(Vxx)
 
             self._check_explosion("Vxx", Vxx, t)
@@ -229,8 +245,6 @@ class ILQR:
 
         act_dim = u_init.shape[1]
         state_dim = x0.shape[0]
-
-        # Safe fallback controller in case no improving step is found
         k_best = np.zeros((T, act_dim), dtype=np.float64)
         K_best = np.zeros((T, act_dim, state_dim), dtype=np.float64)
         cov_best = np.stack(
@@ -274,8 +288,6 @@ class ILQR:
                             f"  backward pass failed ({exc}), increasing reg -> {reg:.2e}"
                         )
                     continue
-
-                # latest feasible controller as fallback
                 k_best = k.copy()
                 K_best = K.copy()
                 cov_best = cov.copy()

@@ -60,8 +60,6 @@ class HumanoidPaperEnv:
 
     def compute_upright_alignment(self, qpos: np.ndarray) -> float:
         """
-        Assumes qpos[3:7] is root quaternion [w, x, y, z].
-
         For a unit quaternion, the world-z alignment of the body's local z-axis is:
             z_align = 1 - 2*(qx^2 + qy^2)
 
@@ -104,7 +102,6 @@ class HumanoidPaperEnv:
         qvel = sim_state[self.nq:]
 
         # policy observation:
-        # remove absolute x,y translation, keep z, orientation, joints, and velocities
         qpos_obs = qpos[2:]
         return np.concatenate([qpos_obs, qvel], axis=0).astype(np.float32)
 
@@ -143,6 +140,9 @@ class HumanoidPaperEnv:
             dones.append(d)
 
             state = next_state
+
+            if d:
+                break
 
         return (
             np.asarray(sim_states, dtype=np.float64),

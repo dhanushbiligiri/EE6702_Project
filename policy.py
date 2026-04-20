@@ -7,8 +7,7 @@ from tqdm import tqdm
 
 
 class GaussianPolicy(nn.Module):
-    """
-    Faithful to paper:
+    """Simple Gaussian policy with:
     - one hidden layer
     - soft rectifier (Softplus)
     - linear output
@@ -74,7 +73,6 @@ class GaussianPolicy(nn.Module):
         self,
         obs: np.ndarray,
         actions: np.ndarray,
-        device: torch.device,
     ) -> np.ndarray:
         with torch.no_grad():
             obs_t = torch.as_tensor(obs, dtype=torch.float32, device=self.device)

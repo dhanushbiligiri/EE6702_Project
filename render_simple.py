@@ -8,7 +8,7 @@ from stable_baselines3 import PPO
 
 
 ENV_ID = "Humanoid-v5"   # change to v4 if needed
-MODEL_PATH = Path("models/best/best_model.zip")  # or models/ppo_humanoid_final.zip
+MODEL_PATH = Path("models/best/best_model.zip")
 
 
 def main():
@@ -22,8 +22,6 @@ def main():
         action, _ = model.predict(obs, deterministic=True)
         obs, reward, terminated, truncated, info = env.step(action)
         total_reward += reward
-
-        # Small sleep makes the render easier to watch
         time.sleep(0.01)
 
         if terminated or truncated:
